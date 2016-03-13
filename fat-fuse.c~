@@ -141,11 +141,11 @@ return 0;
 }
 
 
-/*static int fat_getattr(const char *path, struct stat *stbuf)
+static int fat_getattr(const char *path, struct stat *stbuf)
 {
 // essentially ls -l 	
 return 0;
-}*/
+}
 
 
 
