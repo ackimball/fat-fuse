@@ -11,7 +11,7 @@
 #include <stdlib.h>
 
 #define BLOCK_SIZE 4069
-#define N 10000000
+#define N 100000
 
 
 
