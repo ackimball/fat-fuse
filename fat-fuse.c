@@ -160,6 +160,5 @@ return 0;
 
 int main(int argc, char *argv[])
 {
-   fat_init();
 	return 0;
 }
