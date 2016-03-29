@@ -10,8 +10,9 @@
 #include <sys/file.h>
 #include <stdlib.h>
 
-#define BLOCK_SIZE 4069
-#define N 10000000
+#define BLOCK_SIZE 512
+#define N 20480
+#define PERMS 0666
 
 
 
@@ -56,7 +57,7 @@ struct block getFree(struct block superB, struct block *list){
 
 
 
-void buildFat(){
+struct block* buildFat(){
    struct block superBlock;
    struct block *list;
    list = (struct block *) malloc (N * BLOCK_SIZE);
@@ -71,10 +72,9 @@ void buildFat(){
    list[0] = superBlock;
 
    int i;
-   int ct =0;
    for (i = 1; i < N; i++){
-      ct++;   
-      printf("%d\n", ct);
+      //ct++;   
+      //printf("%d\n", ct);
       struct block temp;
       temp.magic = 0;
       temp.directorysize = 0;
@@ -82,7 +82,7 @@ void buildFat(){
       temp.root = 0;
       temp.free = 15;
       temp.value = i+1;
-   
+
       list[i] = temp;
    }
 
@@ -90,39 +90,67 @@ void buildFat(){
       printf("%d \n", list[i].value);
    }
    
-   return;
+   return list;
 }
 
 
 int main(int argc, char *argv[])
 {
 
-FILE *fatsystem;
-char *FAT;
-int size;
+//FILE *fatsystem;
+char *FAT = "FAT";
+
+/*int size;
 
 fatsystem = fopen(FAT, "ab+");
 fseek(fatsystem, 0L, SEEK_END);
 size = ftell(fatsystem);
 fseek(fatsystem, 0L, SEEK_SET);
+*/
 
-printf("%d\n", size);
+int fd;
+fd = open(FAT, O_RDWR, PERMS);
+printf("%s\n", "called open");
+printf("%d\n", fd);
 
-   if (size==0){
+if (fd == -1){
+   printf("%s\n", "creating file");
+   printf("%d\n", fd);
 
-      buildFat();
+   fd = creat(FAT, PERMS);
+
+   printf("%d\n", fd);
+   if (fd != -1){
+      printf("%s\n", "created file");
+   } 
+struct block *list;
+list = buildFat();
 
 
 
-   } else{
+int w;
+printf("%s\n", "writing");
+
+char *b;
+b = (char *) &list;
 
 
-      
-      
-   }
 
 
 
+write(fd, b, N*BLOCK_SIZE);
+printf("%s\n", "wrote");
+
+
+
+} 
+
+
+
+
+
+
+close(fd);
 
 	return 0;
 }
