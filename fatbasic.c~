@@ -18,6 +18,7 @@
 
 
 
+
 struct directoryEntry {
    bool isFile; //directory or file
    int size;  //size in bytes 
@@ -72,9 +73,10 @@ struct block* buildFat(){
    list[0] = superBlock;
 
    int i;
-   for (i = 1; i < N; i++){
-      //ct++;   
-      //printf("%d\n", ct);
+   int ct = 0;
+   for (i = 1; i <= N; i++){
+      ct++;   
+      printf("%d\n", ct);
       struct block temp;
       temp.magic = 0;
       temp.directorysize = 0;
@@ -82,11 +84,11 @@ struct block* buildFat(){
       temp.root = 0;
       temp.free = 15;
       temp.value = i+1;
-      char pad[BLOCK_SIZE];
+
       list[i] = temp;
    }
 
-   for(i = 0; i < 3; i++) {
+   for(i = 0; i < 5; i++) {
       printf("%d \n", list[i].value);
    }
    
@@ -97,60 +99,33 @@ struct block* buildFat(){
 int main(int argc, char *argv[])
 {
 
-//FILE *fatsystem;
-char *FAT = "FAT";
-
-/*int size;
-
-fatsystem = fopen(FAT, "ab+");
-fseek(fatsystem, 0L, SEEK_END);
-size = ftell(fatsystem);
-fseek(fatsystem, 0L, SEEK_SET);
-*/
-
-int fd;
-fd = open(FAT, O_RDWR, PERMS);
-printf("%s\n", "called open");
-printf("%d\n", fd);
-
-if (fd == -1){
-   printf("%s\n", "creating file");
-   printf("%d\n", fd);
-
-   fd = creat(FAT, PERMS);
-
-   printf("%d\n", fd);
-   if (fd != -1){
-      printf("%s\n", "created file");
-   } 
-struct block *list;
-list = buildFat();
+   char *FAT = "FAT";
+   int fd;
+   fd = open(FAT, O_RDWR, PERMS);
 
 
+   if (fd == -1){
+      fd = creat(FAT, PERMS);
 
-int w;
-printf("%s\n", "writing");
+      if (fd != -1){
+         printf("%s\n", "created file");
+      } 
+      
+      struct block *list;
+      list = buildFat();
 
-char *b;
-b = (char *) &list;
+      char *b;
+      b = (char *) list;
 
+      write(fd, b, N);
+      printf("%s\n", "wrote");
 
+      } 
 
-
-
-write(fd, b, N*BLOCK_SIZE);
-printf("%s\n", "wrote");
-
-
-
-} 
-
-
-
-
-
+char *buf;
+read(fd, buf, BLOCK_SIZE);
+printf("%s\n", buf); 
 
 close(fd);
-
-	return 0;
+return 0;
 }
