@@ -1,4 +1,15 @@
+#define FUSE_USE_VERSION 26
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#ifdef linux
+/* For pread()/pwrite() */
+#define _XOPEN_SOURCE 500
+#endif
+
+#include <fuse.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -96,8 +107,9 @@ struct block* buildFat(){
 }
 
 
-int main(int argc, char *argv[])
-{
+
+
+static void* fat_init(struct fuse_conn_info *conn){
 
    char *FAT = "FAT";
    int fd;
@@ -119,9 +131,126 @@ int main(int argc, char *argv[])
 
       write(fd, b, N);
       printf("%s\n", "wrote");
-
       } 
 
-close(fd);
+     close(fd);
+	
+	return 0;
+
+
+}
+
+static int fat_getattr(const char *path, struct stat *stbuf){
+// essentially ls -l 	
 return 0;
 }
+
+static int fat_access(const char *path, int mask)
+{
+	int res;
+
+	res = access(path, mask);
+	if (res == -1)
+		return -errno;
+
+	return 0;
+}
+
+
+static int fat_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+		       off_t offset, struct fuse_file_info *fi)
+{
+	DIR *dp;
+	struct dirent *de;
+
+	(void) offset;
+	(void) fi;
+
+	dp = opendir(path);
+	if (dp == NULL)
+		return -errno;
+
+	while ((de = readdir(dp)) != NULL) {
+		struct stat st;
+		memset(&st, 0, sizeof(st));
+		st.st_ino = de->d_ino;
+		st.st_mode = de->d_type << 12;
+		if (filler(buf, de->d_name, &st, 0))
+			break;
+	}
+
+	closedir(dp);
+	return 0;
+}
+
+static int fat_mkdir(const char *path, mode_t mode)
+{
+	int res;
+
+	res = mkdir(path, mode);
+	if (res == -1)
+		return -errno;
+
+	return 0;
+}
+
+static int fat_chmod(const char *path, mode_t mode){
+   return 0;
+}
+
+static int fat_open(const char *path, struct fuse_file_info *fi){
+	return 0;
+}
+
+static int fat_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi){
+	return 0;
+}
+
+static int fat_write(const char* path, const char *buf, size_t size, off_t offset,  struct fuse_file_info *fi){
+	return 0;
+}
+
+static int fat_truncate(const char *path, off_t size){
+	return 0;
+}
+
+static int fat_mknod(const char *path, mode_t mode, dev_t dev){
+	return 0;
+}
+
+static int fat_create(const char *path, mode_t mode, struct fuse_file_info *fi){
+	return 0;
+}
+
+static int fat_chown(const char *path, uid_t uid, gid_t gid){
+	return 0;
+}	
+
+
+static struct fuse_operations fat_oper = {
+   	.init 		= fat_init,	
+   	.getattr	= fat_getattr,
+	.access		= fat_access,
+	.readdir	= fat_readdir,
+	.mkdir		= fat_mkdir,
+	.chmod		= fat_chmod,
+	.open		= fat_open,
+	.read		= fat_read,
+	.write		= fat_write,
+	.truncate	= fat_truncate,
+	.mknod		= fat_mknod,
+	.create		= fat_create,
+	.chown		= fat_chown,
+
+};
+
+
+
+int main(int argc, char *argv[]){
+	return fuse_main(argc, argv, &fat_oper, NULL);
+}
+
+
+
+
+
