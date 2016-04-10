@@ -24,17 +24,23 @@
 #define BLOCK_SIZE 512
 #define N 20480
 #define PERMS 0666
+#define DEBUG 1
 
-
-
-
+static char hello_str[] = "Hello World!\n";
+static const char *hello_path = "/hello";
+struct block *list;
+static const char *dotpath = "/.";
+static const char *dotdotpath = "/..";
+static char dot_str[] = ".\n";
+static char dotdot_str[] = "..\n";
+	char my_cwd[1024];
 
 
 struct directoryEntry {
    bool isFile; //directory or file
    int size;  //size in bytes 
    int blocknumber; // number of the first block
-   char name[];  // file name
+   char *name;  // file name
 };
 
 struct block {
@@ -47,7 +53,8 @@ struct block {
    int value; // not used in superblock
 };
 
-struct block getFree(struct block superB, struct block *list){
+int getFree(struct block *list){
+   struct block superB = list[0];
    int freeIndex = superB.free;
    struct block freeBlock = list[freeIndex];
    freeBlock.free = 0;
@@ -64,7 +71,7 @@ struct block getFree(struct block superB, struct block *list){
       }
       superB.free = nextFreeIndex;
    } 
-   return freeBlock;
+   return freeIndex;
 }
 
 
@@ -120,20 +127,37 @@ static void* fat_init(struct fuse_conn_info *conn){
       fd = creat(FAT, PERMS);
 
       if (fd != -1){
-         printf("%s\n", "created file");
+         if (DEBUG)
+			{printf("%s\n", "created file");}
       } 
       
-      struct block *list;
+
       list = buildFat();
 
       char *b;
       b = (char *) list;
 
       write(fd, b, N);
-      printf("%s\n", "wrote");
+		if (DEBUG)      
+			{printf("%s\n", "wrote");}
       } 
 
-     close(fd);
+
+
+	char* c[N];
+	read(fd, c, N);
+	
+	list = (struct block *) c;
+	
+
+
+	//TODO: set up root directory
+	struct directoryEntry rootdir;
+	rootdir.isFile = 0;
+	rootdir.size = BLOCK_SIZE;
+	rootdir.blocknumber = list[0].root;
+
+	
 	
 	return 0;
 
@@ -142,7 +166,29 @@ static void* fat_init(struct fuse_conn_info *conn){
 
 static int fat_getattr(const char *path, struct stat *stbuf){
 // essentially ls -l 	
-return 0;
+	if (DEBUG)
+		{printf("%s\n", "getattr called");}
+	int res = 0;
+	memset(stbuf, 0, sizeof(struct stat));
+
+	
+	if (strcmp(path, "/") == 0){
+		stbuf->st_mode = S_IFDIR | 0755;
+	} else if (strcmp(path, dotpath) == 0){
+	    stbuf->st_mode = S_IFDIR | 0755;
+		stbuf->st_size = strlen(dot_str);
+	} else if (strcmp(path, dotdotpath) == 0){
+		stbuf->st_mode = S_IFDIR | 0755;
+		stbuf->st_size = strlen(dotdot_str);
+	} else {
+		res = -ENOENT;
+	}
+
+
+	//struct directoryEntry current = (struct directoryEntry) list[path];
+
+  
+      return res;
 }
 
 static int fat_access(const char *path, int mask)
@@ -160,27 +206,17 @@ static int fat_access(const char *path, int mask)
 static int fat_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		       off_t offset, struct fuse_file_info *fi)
 {
-	DIR *dp;
-	struct dirent *de;
+     (void) offset;
+      (void) fi;
+  
+      if(strcmp(path, "/") != 0)
+          return -ENOENT;
+  
+      filler(buf, dotpath + 1, NULL, 0);
+      filler(buf, dotdotpath + 1, NULL, 0);      
 
-	(void) offset;
-	(void) fi;
 
-	dp = opendir(path);
-	if (dp == NULL)
-		return -errno;
-
-	while ((de = readdir(dp)) != NULL) {
-		struct stat st;
-		memset(&st, 0, sizeof(st));
-		st.st_ino = de->d_ino;
-		st.st_mode = de->d_type << 12;
-		if (filler(buf, de->d_name, &st, 0))
-			break;
-	}
-
-	closedir(dp);
-	return 0;
+      return 0;
 }
 
 static int fat_mkdir(const char *path, mode_t mode)
@@ -188,6 +224,13 @@ static int fat_mkdir(const char *path, mode_t mode)
 	int res;
 
 	res = mkdir(path, mode);
+
+	struct directoryEntry newDir;
+	newDir.isFile = 0;
+	newDir.size = BLOCK_SIZE;
+	newDir.blocknumber = getFree(list);
+	newDir.name = "new directory";
+
 	if (res == -1)
 		return -errno;
 
@@ -247,6 +290,7 @@ static struct fuse_operations fat_oper = {
 
 
 int main(int argc, char *argv[]){
+	getcwd(my_cwd, 1024);
 	return fuse_main(argc, argv, &fat_oper, NULL);
 }
 
