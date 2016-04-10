@@ -1,3 +1,11 @@
+/*
+Partial* FAT-like file system 
+Andrea Kimball
+*I made the choice to submit what I have now and use my time going forward to focus on the final project.
+*/
+
+
+
 #define FUSE_USE_VERSION 26
 
 #ifdef HAVE_CONFIG_H
@@ -26,14 +34,17 @@
 #define PERMS 0666
 #define DEBUG 1
 
-static char hello_str[] = "Hello World!\n";
-static const char *hello_path = "/hello";
+// universal local reference to the file system
 struct block *list;
+
+// building for . and ..
 static const char *dotpath = "/.";
 static const char *dotdotpath = "/..";
 static char dot_str[] = ".\n";
 static char dotdot_str[] = "..\n";
-	char my_cwd[1024];
+	
+// exploring using get_current_dir_name as listed in the online Gotchas
+char my_cwd[1024];
 
 
 struct directoryEntry {
@@ -53,6 +64,7 @@ struct block {
    int value; // not used in superblock
 };
 
+// macro to get the next free block and update the superblock's free list
 int getFree(struct block *list){
    struct block superB = list[0];
    int freeIndex = superB.free;
@@ -75,7 +87,7 @@ int getFree(struct block *list){
 }
 
 
-
+// macro to set up - called once at beginning
 struct block* buildFat(){
    struct block superBlock;
    struct block *list;
@@ -115,7 +127,7 @@ struct block* buildFat(){
 
 
 
-
+// fuse function init checks for FAT and creates it if it is not there
 static void* fat_init(struct fuse_conn_info *conn){
 
    char *FAT = "FAT";
@@ -148,7 +160,6 @@ static void* fat_init(struct fuse_conn_info *conn){
 	read(fd, c, N);
 	
 	list = (struct block *) c;
-	
 
 
 	//TODO: set up root directory
@@ -156,21 +167,17 @@ static void* fat_init(struct fuse_conn_info *conn){
 	rootdir.isFile = 0;
 	rootdir.size = BLOCK_SIZE;
 	rootdir.blocknumber = list[0].root;
-
-	
 	
 	return 0;
-
-
 }
 
+
+// fuse getattr should perform essentially ls -l
 static int fat_getattr(const char *path, struct stat *stbuf){
-// essentially ls -l 	
 	if (DEBUG)
 		{printf("%s\n", "getattr called");}
 	int res = 0;
 	memset(stbuf, 0, sizeof(struct stat));
-
 	
 	if (strcmp(path, "/") == 0){
 		stbuf->st_mode = S_IFDIR | 0755;
@@ -184,12 +191,11 @@ static int fat_getattr(const char *path, struct stat *stbuf){
 		res = -ENOENT;
 	}
 
-
+	//TODO: handle accessing directories and metadata
 	//struct directoryEntry current = (struct directoryEntry) list[path];
-
-  
       return res;
 }
+
 
 static int fat_access(const char *path, int mask)
 {
@@ -230,6 +236,8 @@ static int fat_mkdir(const char *path, mode_t mode)
 	newDir.size = BLOCK_SIZE;
 	newDir.blocknumber = getFree(list);
 	newDir.name = "new directory";
+	
+	//TODO: link the new directory entry with the FAT
 
 	if (res == -1)
 		return -errno;
@@ -269,7 +277,6 @@ static int fat_chown(const char *path, uid_t uid, gid_t gid){
 	return 0;
 }	
 
-
 static struct fuse_operations fat_oper = {
    	.init 		= fat_init,	
    	.getattr	= fat_getattr,
@@ -288,9 +295,9 @@ static struct fuse_operations fat_oper = {
 };
 
 
-
 int main(int argc, char *argv[]){
-	getcwd(my_cwd, 1024);
+	// beginnings of an attempt to use get_current_dir_name to switch to FAT file mounting
+	getcwd(my_cwd, 1024); 
 	return fuse_main(argc, argv, &fat_oper, NULL);
 }
 
